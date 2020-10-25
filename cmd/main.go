@@ -10,9 +10,17 @@ import (
 )
 
 func main() {
-	ebiten.SetWindowSize(640, 480)
-	ebiten.SetWindowTitle("Geometry Matrix")
-	if err := ebiten.RunGame(&game.Game{}); err != nil {
+
+	width := 640
+	height := 480
+
+	ebiten.SetWindowSize(width, height)
+	ebiten.SetWindowTitle("Conway's Game of Life")
+
+	gameToRun :=game.Game{}
+	gameToRun.Init(width,height)
+
+	if err := ebiten.RunGame(&gameToRun); err != nil {
 		log.Fatal(err)
 	}
 }
