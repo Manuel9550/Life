@@ -31,14 +31,13 @@ type Game struct {
 	ticker* time.Ticker
 
 	keyPressed map[ebiten.Key]bool // Map of key presses, to determine if the user has released a key
-
 	paused bool
 
 	interval time.Duration
 }
 
 func (g *Game)  Init(gameWidth int, gameHeight int) {
-	
+
 	var err error
 	g.dead, _, err = ebitenutil.NewImageFromFile("assets/tile-white.png")
 	if err != nil {
@@ -64,7 +63,11 @@ func (g *Game)  Init(gameWidth int, gameHeight int) {
 	g.ticker = time.NewTicker(g.interval * time.Millisecond)
 
 	// Initialize the keys we are tracking
-	g.keyPressed = make(map[ebiten.Key]bool)
+	g.keyPressed = map[ebiten.Key]bool{
+		ebiten.KeySpace:false,
+		ebiten.KeyLeft:false,
+		ebiten.KeyRight:false,
+	}
 }
 
 func (g *Game) Update() error {
@@ -88,36 +91,26 @@ func (g *Game) Update() error {
 
 func (g * Game) checkKeys() {
 
-	if ebiten.IsKeyPressed(ebiten.KeySpace) {
-		g.keyPressed[ebiten.KeySpace] = true
-	} else {
-		// Was this key previously pressed?
-		if g.keyPressed[ebiten.KeySpace] {
-			g.keyPressed[ebiten.KeySpace] = false
-			g.pauseButton()
+	for key, isPressed := range g.keyPressed {
+		if ebiten.IsKeyPressed(key) {
+			g.keyPressed[key] = true
+		} else {
+			// Was this key previously pressed?
+			if isPressed {
+				g.keyPressed[key] = false
+
+				switch pressedKey := key; pressedKey {
+				case ebiten.KeySpace:
+					g.pauseButton()
+				case ebiten.KeyLeft:
+					g.updateTime(-100)
+				case ebiten.KeyRight:
+					g.updateTime(100)
+				}
+
+			}
 		}
 	}
-
-	if ebiten.IsKeyPressed(ebiten.KeyLeft) {
-		g.keyPressed[ebiten.KeyLeft] = true
-	} else {
-		// Was this key previously pressed?
-		if g.keyPressed[ebiten.KeyLeft] {
-			g.keyPressed[ebiten.KeyLeft] = false
-			g.updateTime(-100)
-		}
-	}
-
-	if ebiten.IsKeyPressed(ebiten.KeyRight) {
-		g.keyPressed[ebiten.KeyRight] = true
-	} else {
-		// Was this key previously pressed?
-		if g.keyPressed[ebiten.KeyRight] {
-			g.keyPressed[ebiten.KeyRight] = false
-			g.updateTime(100)
-		}
-	}
-
 
 }
 
