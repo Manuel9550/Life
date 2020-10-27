@@ -1,7 +1,6 @@
 package game
 
 import (
-	"github.com/Manuel9550/Life/pkg/tile"
 	"github.com/hajimehoshi/ebiten"
 	"github.com/hajimehoshi/ebiten/ebitenutil"
 	_ "image/png"
@@ -27,19 +26,19 @@ type Game struct {
 	alive *ebiten.Image
 	dead *ebiten.Image
 
-	squareRows int
-	squareColumns int
-
-	tiles [][]tile.Tile
-	tilesUpdate [][]tile.Tile
+	board Board
 
 	ticker* time.Ticker
+
+	keyPressed map[ebiten.Key]bool // Map of key presses, to determine if the user has released a key
+
+	paused bool
+
+	interval time.Duration
 }
 
 func (g *Game)  Init(gameWidth int, gameHeight int) {
-
-
-
+	
 	var err error
 	g.dead, _, err = ebitenutil.NewImageFromFile("assets/tile-white.png")
 	if err != nil {
@@ -51,44 +50,33 @@ func (g *Game)  Init(gameWidth int, gameHeight int) {
 		log.Fatal(err)
 	}
 
+	g.paused = false
+
 	g.width = gameWidth
 	g.height = gameHeight
 
-	// Must fill the screen with 20x20 squares
-	g.squareRows = g.height / 20
-	g.squareColumns = g.width /20
+	// Initialize the board with 20x20 tiles
+	g.board.initialize(gameWidth,gameHeight)
 
-	g.tiles = make([][]tile.Tile,g.squareColumns)
-	g.tilesUpdate = make([][]tile.Tile,g.squareColumns)
-
-	for x := range g.tiles {
-		g.tiles[x] = make([]tile.Tile,g.squareRows)
-		g.tilesUpdate[x] = make([]tile.Tile,g.squareRows)
-		for y := range g.tiles[x] {
-			g.tiles[x][y] = tile.Tile{Alive:false}
-			g.tilesUpdate[x][y] = tile.Tile{Alive:false}
-		}
-	}
-
-
-	// Test the array!
-	g.tiles[10][10].Alive = true
-	g.tiles[11][10].Alive = true
-	g.tiles[12][10].Alive = true
+	g.interval = 100
 
 	// Set the timer to the standard 1 update per second
-	g.ticker = time.NewTicker(1000 * time.Millisecond)
+	g.ticker = time.NewTicker(g.interval * time.Millisecond)
+
+	// Initialize the keys we are tracking
+	g.keyPressed = make(map[ebiten.Key]bool)
 }
 
 func (g *Game) Update() error {
 
+	g.checkKeys()
 
 	// Check if enough time has passed to update the game
 	for {
 		select {
 		case _ = <-g.ticker.C:
 			// The ticker has sent a value: Perform an update
-			g.UpdateTiles()
+			g.board.UpdateTiles()
 
 		default:
 			return nil
@@ -98,18 +86,53 @@ func (g *Game) Update() error {
 	//return nil
 }
 
+func (g * Game) checkKeys() {
+
+	if ebiten.IsKeyPressed(ebiten.KeySpace) {
+		g.keyPressed[ebiten.KeySpace] = true
+	} else {
+		// Was this key previously pressed?
+		if g.keyPressed[ebiten.KeySpace] {
+			g.keyPressed[ebiten.KeySpace] = false
+			g.pauseButton()
+		}
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyLeft) {
+		g.keyPressed[ebiten.KeyLeft] = true
+	} else {
+		// Was this key previously pressed?
+		if g.keyPressed[ebiten.KeyLeft] {
+			g.keyPressed[ebiten.KeyLeft] = false
+			g.updateTime(-100)
+		}
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyRight) {
+		g.keyPressed[ebiten.KeyRight] = true
+	} else {
+		// Was this key previously pressed?
+		if g.keyPressed[ebiten.KeyRight] {
+			g.keyPressed[ebiten.KeyRight] = false
+			g.updateTime(100)
+		}
+	}
+
+
+}
+
 func (g *Game) Draw(screen *ebiten.Image) {
 
 	// Must fill the screen with 20x20 squares
 
 	op := &ebiten.DrawImageOptions{}
 
-	for x := 0; x < g.squareColumns; x++ {
-		for y := 0; y < g.squareRows; y++ {
+	for x := 0; x < g.board.squareColumns; x++ {
+		for y := 0; y < g.board.squareRows; y++ {
 			op.GeoM.Reset()
 			op.GeoM.Translate(float64(x) * 20, float64(y) * 20 )
 
-			if g.tiles[x][y].Alive {
+			if g.board.tiles[x][y].Alive {
 				screen.DrawImage(g.alive, op)
 			} else {
 				screen.DrawImage(g.dead, op)
@@ -128,58 +151,34 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 	return g.width, g.height
 }
 
-func (g *Game)  UpdateTiles() {
 
-
-	for x := 0; x < g.squareColumns; x++ {
-		for y := 0; y < g.squareRows; y++ {
-			if g.tiles[x][y].Alive {
-				// Live cells with exactly two or three live neighbours lives on to the next generation
-
-				liveCount := g.liveCount(x,y)
-
-				if liveCount != 2 && liveCount != 3 {
-					g.tilesUpdate[x][y].Alive = false
-				} else {
-					g.tilesUpdate[x][y].Alive = true
-				}
-			} else {
-				// dead cells with three live neighbours becomes a live cell
-				liveCount := g.liveCount(x,y)
-
-				if liveCount == 3 {
-					g.tilesUpdate[x][y].Alive = true
-				} else {
-					g.tilesUpdate[x][y].Alive = false
-				}
-			}
-
-		}
+func (g* Game) pauseButton() {
+	// If the timer is on, stop it. If the timer isn't on, restart it
+	if g.paused {
+		g.ticker = time.NewTicker(g.interval * time.Millisecond)
+		g.paused = false
+	} else {
+		g.ticker.Stop()
+		g.paused = true
 	}
 
-	// Once we have the new state, copy the updated state into the state that will be rendered on screen
-	for x := 0; x < g.squareColumns; x++ {
-		copy(g.tiles[x],g.tilesUpdate[x])
-	}
 }
 
-func (g *Game)  liveCount(x int, y int) int {
-	liveCount := 0
-	for i := x - 1; i <= x + 1; i++ {
-		for t := y - 1; t <= y + 1; t++ {
+func (g* Game) updateTime(duration time.Duration) {
+	g.interval += duration
 
-			// We don't include the actual cell, just the neighbours!
-			if i != x || t != y {
-				// Make sure not to fetch cells that are out of bounds
-				if i >= 0 && t >= 0 && i < g.squareColumns && t < g.squareRows {
-					if g.tiles[i][t].Alive {
-						liveCount += 1
-					}
-				}
-			}
-		}
+	if g.interval >= 2000 {
+		g.interval = 2000
 	}
 
-	return liveCount
+	if g.interval <= 100 {
+		g.interval = 100
+	}
+
+	g.ticker = time.NewTicker(g.interval * time.Millisecond)
 }
+
+
+
+
 

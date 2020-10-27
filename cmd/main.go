@@ -17,7 +17,7 @@ func main() {
 	ebiten.SetWindowSize(width, height)
 	ebiten.SetWindowTitle("Conway's Game of Life")
 
-	gameToRun :=game.Game{}
+	gameToRun := game.Game{}
 	gameToRun.Init(width,height)
 
 	if err := ebiten.RunGame(&gameToRun); err != nil {
