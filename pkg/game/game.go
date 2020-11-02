@@ -25,15 +25,27 @@ type Game struct {
 	height int
 	alive *ebiten.Image
 	dead *ebiten.Image
+	highlighted *ebiten.Image
 
 	board Board
 
 	ticker* time.Ticker
 
 	keyPressed map[ebiten.Key]bool // Map of key presses, to determine if the user has released a key
+	mousePressed bool 
 	paused bool
 
 	interval time.Duration
+	NextInterval time.Duration
+
+	xPos int
+	yPos int
+
+	lastXPos int
+	lastYPos int
+	
+	
+
 }
 
 func (g *Game)  Init(gameWidth int, gameHeight int) {
@@ -49,6 +61,11 @@ func (g *Game)  Init(gameWidth int, gameHeight int) {
 		log.Fatal(err)
 	}
 
+	g.highlighted, _, err = ebitenutil.NewImageFromFile("assets/tile-blue.png")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	g.paused = false
 
 	g.width = gameWidth
@@ -57,7 +74,8 @@ func (g *Game)  Init(gameWidth int, gameHeight int) {
 	// Initialize the board with 20x20 tiles
 	g.board.initialize(gameWidth,gameHeight)
 
-	g.interval = 100
+	g.interval = 500
+	g.NextInterval = g.interval
 
 	// Set the timer to the standard 1 update per second
 	g.ticker = time.NewTicker(g.interval * time.Millisecond)
@@ -68,11 +86,19 @@ func (g *Game)  Init(gameWidth int, gameHeight int) {
 		ebiten.KeyLeft:false,
 		ebiten.KeyRight:false,
 	}
+
+	g.xPos = 0
+	g.yPos = 0
+
+	g.lastXPos = 0
+	g.lastYPos = 0
 }
 
 func (g *Game) Update() error {
 
 	g.checkKeys()
+	g.checkMouse()
+	g.checkCursor()
 
 	// Check if enough time has passed to update the game
 	for {
@@ -80,6 +106,12 @@ func (g *Game) Update() error {
 		case _ = <-g.ticker.C:
 			// The ticker has sent a value: Perform an update
 			g.board.UpdateTiles()
+
+			// Check if we should update the timer as well
+			if g.NextInterval != g.interval {
+				g.interval = g.NextInterval
+				g.ticker = time.NewTicker(g.interval * time.Millisecond)
+			}
 
 		default:
 			return nil
@@ -134,6 +166,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 
+	// whichever square the cursor is currently on, highlight it
+	op.GeoM.Reset()
+	op.GeoM.Translate(float64(g.xPos) * float64(g.board.squareSize), float64(g.yPos) * float64(g.board.squareSize) )
+	screen.DrawImage(g.highlighted, op)
+
 
 	//op.GeoM.Translate(50, 50)
 	//op.GeoM.Scale(1, 1)
@@ -158,17 +195,48 @@ func (g* Game) pauseButton() {
 }
 
 func (g* Game) updateTime(duration time.Duration) {
-	g.interval += duration
+	g.NextInterval += duration
 
-	if g.interval >= 2000 {
-		g.interval = 2000
+	if g.NextInterval >= 2000 {
+		g.NextInterval = 2000
 	}
 
-	if g.interval <= 100 {
-		g.interval = 100
+	if g.NextInterval <= 100 {
+		g.NextInterval = 100
 	}
+}
 
-	g.ticker = time.NewTicker(g.interval * time.Millisecond)
+func (g *Game) checkCursor() {
+	// compare the cursor position to any onscreen objects
+	x, y := ebiten.CursorPosition()
+
+	// check if the cursor is over a button
+	g.xPos, g.yPos = g.board.checkSquare(x,y)
+
+}
+
+func (g *Game) checkMouse() {
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		g.mousePressed = true
+
+		// If the user is click-dragging, then allow them to change the tile they passed into
+		if g.lastXPos != g.xPos || g.lastYPos != g.yPos {
+
+			// Only want to allow this for fulling tiles
+			if !g.board.tiles[g.xPos][g.yPos].Alive {
+				g.board.tiles[g.xPos][g.yPos].Click()
+				g.lastXPos = g.xPos
+				g.lastYPos = g.yPos
+			}
+		}
+
+	} else {
+		// Check if the mouse was previously pressed
+		if g.mousePressed {
+			g.mousePressed = false
+			g.board.tiles[g.xPos][g.yPos].Click()
+		}
+	}
 }
 
 

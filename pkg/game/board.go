@@ -8,12 +8,16 @@ type Board struct {
 
 	tiles [][]tile.Tile
 	tilesUpdate [][]tile.Tile
+
+	squareSize int
 }
 
 func (b *Board) initialize(width int, height int) {
+	b.squareSize = 20
+
 	// Must fill the screen with 20x20 squares
-	b.squareRows = height / 20
-	b.squareColumns = width /20
+	b.squareRows = height / b.squareSize
+	b.squareColumns = width / b.squareSize
 
 	b.tiles = make([][]tile.Tile,b.squareColumns)
 	b.tilesUpdate = make([][]tile.Tile,b.squareColumns)
@@ -93,5 +97,13 @@ func (b *Board)  liveCount(x int, y int) int {
 	}
 
 	return liveCount
+}
+
+func (b * Board) checkSquare(x int, y int) (int,int) {
+	// Figure out which button we are on
+	xCoordinate := x / b.squareSize
+	yCoordinate := y / b.squareSize
+
+	return xCoordinate, yCoordinate
 }
 
