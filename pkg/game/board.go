@@ -12,12 +12,15 @@ type Board struct {
 	squareSize int
 }
 
-func (b *Board) initialize(width int, height int) {
+func (b *Board) initialize(width int, height int) int {
 	b.squareSize = 20
 
 	// Must fill the screen with 20x20 squares
 	b.squareRows = height / b.squareSize
 	b.squareColumns = width / b.squareSize
+
+	// get the height remainder for UI purposes
+	remainder := height % 20
 
 	b.tiles = make([][]tile.Tile,b.squareColumns)
 	b.tilesUpdate = make([][]tile.Tile,b.squareColumns)
@@ -40,6 +43,8 @@ func (b *Board) initialize(width int, height int) {
 	b.tiles[4][3].Alive = true
 	b.tiles[4][2].Alive = true
 	b.tiles[3][4].Alive = true
+
+	return remainder
 
 
 }
@@ -103,6 +108,25 @@ func (b * Board) checkSquare(x int, y int) (int,int) {
 	// Figure out which button we are on
 	xCoordinate := x / b.squareSize
 	yCoordinate := y / b.squareSize
+
+	// Check for offscreen clicks/drags!
+	if xCoordinate >= b.squareColumns {
+		xCoordinate = b.squareColumns - 1
+	}
+
+	if xCoordinate < 0  {
+		xCoordinate = 0
+	}
+
+	if yCoordinate >= b.squareRows {
+		yCoordinate = b.squareRows - 1
+	}
+
+	if yCoordinate < 0  {
+		yCoordinate = 0
+	}
+
+
 
 	return xCoordinate, yCoordinate
 }

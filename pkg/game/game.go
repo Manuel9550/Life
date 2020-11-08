@@ -8,24 +8,10 @@ import (
 	"time"
 )
 
-//var width = 640
-//var height = 480
-//var alive *ebiten.Image
-//var dead *ebiten.Image
-
-//var squareRows int
-//var squareColumns int
-
-//var tiles [][]tile.Tile
-
-//var ticker* time.Ticker
-
 type Game struct {
 	width int
 	height int
-	alive *ebiten.Image
-	dead *ebiten.Image
-	highlighted *ebiten.Image
+	images map[string]*ebiten.Image
 
 	board Board
 
@@ -43,6 +29,16 @@ type Game struct {
 
 	lastXPos int
 	lastYPos int
+
+	buttonHeight float64
+	buttonWidth float64
+
+	heightOffset int
+
+	heightScale float64
+	widthScale float64
+
+	buttons map[string]*Button
 	
 	
 
@@ -50,34 +46,58 @@ type Game struct {
 
 func (g *Game)  Init(gameWidth int, gameHeight int) {
 
+	g.images = make(map[string]*ebiten.Image)
+
+
+
 	var err error
-	g.dead, _, err = ebitenutil.NewImageFromFile("assets/tile-white.png")
+	g.images["DEAD"], _, err = ebitenutil.NewImageFromFile("assets/tile-white.png")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	g.alive, _, err = ebitenutil.NewImageFromFile("assets/tile-green.png")
+
+	g.images["ALIVE"], _, err = ebitenutil.NewImageFromFile("assets/tile-green.png")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	g.highlighted, _, err = ebitenutil.NewImageFromFile("assets/tile-blue.png")
+	g.images["HIGHLIGHTED"], _, err = ebitenutil.NewImageFromFile("assets/tile-blue.png")
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	g.images["PLAY"], _, err = ebitenutil.NewImageFromFile("assets/play.png")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	g.images["PAUSE"], _, err = ebitenutil.NewImageFromFile("assets/pause.png")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	w, h := g.images["PLAY"].Size()
 
 	g.paused = false
 
 	g.width = gameWidth
 	g.height = gameHeight
 
+	// The game will need a bottom panel for buttons.
+	g.buttonHeight = float64(gameHeight) * 0.15
+	g.buttonWidth = float64(gameWidth) * 0.20
+
+
 	// Initialize the board with 20x20 tiles
-	g.board.initialize(gameWidth,gameHeight)
+	g.heightOffset = g.board.initialize(gameWidth,gameHeight - int(g.buttonHeight))
+	g.heightScale = (g.buttonHeight + float64(g.heightOffset)) / float64(h)
+	g.widthScale = g.buttonWidth / float64(w)
 
 	g.interval = 500
 	g.NextInterval = g.interval
 
-	// Set the timer to the standard 1 update per second
+	// Set the timer to the standard 1 update per 500 milliseconds
 	g.ticker = time.NewTicker(g.interval * time.Millisecond)
 
 	// Initialize the keys we are tracking
@@ -92,6 +112,16 @@ func (g *Game)  Init(gameWidth int, gameHeight int) {
 
 	g.lastXPos = 0
 	g.lastYPos = 0
+
+	g.buttons = make(map[string]*Button)
+
+	g.buttons["PLAY"] = &Button{
+		x:      0,
+		y:      g.height - int(g.buttonHeight) - g.heightOffset,
+		height: g.buttonHeight,
+		width:  g.buttonWidth,
+		image:  g.images["PLAY"],
+	}
 }
 
 func (g *Game) Update() error {
@@ -158,9 +188,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			op.GeoM.Translate(float64(x) * 20, float64(y) * 20 )
 
 			if g.board.tiles[x][y].Alive {
-				screen.DrawImage(g.alive, op)
+				screen.DrawImage(g.images["ALIVE"], op)
 			} else {
-				screen.DrawImage(g.dead, op)
+				screen.DrawImage(g.images["DEAD"], op)
 			}
 
 		}
@@ -169,7 +199,18 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// whichever square the cursor is currently on, highlight it
 	op.GeoM.Reset()
 	op.GeoM.Translate(float64(g.xPos) * float64(g.board.squareSize), float64(g.yPos) * float64(g.board.squareSize) )
-	screen.DrawImage(g.highlighted, op)
+	screen.DrawImage(g.images["HIGHLIGHTED"], op)
+
+	// Draw the buttons
+
+	for _, button := range g.buttons {
+		op.GeoM.Reset()
+		//op.GeoM.Scale(2, g.buttonHeight + float64(g.heightOffset) / float64(h))
+		op.GeoM.Scale(g.widthScale, g.heightScale)
+		op.GeoM.Translate(float64(button.x), float64(button.y))
+
+		screen.DrawImage(button.image, op)
+	}
 
 
 	//op.GeoM.Translate(50, 50)
@@ -187,9 +228,11 @@ func (g* Game) pauseButton() {
 	if g.paused {
 		g.ticker = time.NewTicker(g.interval * time.Millisecond)
 		g.paused = false
+		g.buttons["PLAY"].image = g.images["PAUSE"]
 	} else {
 		g.ticker.Stop()
 		g.paused = true
+		g.buttons["PLAY"].image = g.images["PLAY"]
 	}
 
 }
@@ -210,6 +253,7 @@ func (g *Game) checkCursor() {
 	// compare the cursor position to any onscreen objects
 	x, y := ebiten.CursorPosition()
 
+
 	// check if the cursor is over a button
 	g.xPos, g.yPos = g.board.checkSquare(x,y)
 
@@ -217,7 +261,13 @@ func (g *Game) checkCursor() {
 
 func (g *Game) checkMouse() {
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-		g.mousePressed = true
+
+		if g.mousePressed == false {
+			g.mousePressed = true
+
+			g.lastXPos = g.xPos
+			g.lastYPos = g.yPos
+		}
 
 		// If the user is click-dragging, then allow them to change the tile they passed into
 		if g.lastXPos != g.xPos || g.lastYPos != g.yPos {
@@ -230,11 +280,30 @@ func (g *Game) checkMouse() {
 			}
 		}
 
+
+
 	} else {
 		// Check if the mouse was previously pressed
 		if g.mousePressed {
 			g.mousePressed = false
-			g.board.tiles[g.xPos][g.yPos].Click()
+
+			// Check if the user clicked any of the buttons
+			x, y := ebiten.CursorPosition()
+			buttonClicked := false
+			for buttonName, button := range g.buttons {
+				if button.IsPressed(x,y){
+					switch buttonName {
+					case "PLAY":
+						g.pauseButton()
+					}
+					buttonClicked = true
+					break
+				}
+			}
+			if !buttonClicked {
+				g.board.tiles[g.xPos][g.yPos].Click()
+			}
+
 		}
 	}
 }

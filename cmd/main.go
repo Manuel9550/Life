@@ -12,9 +12,10 @@ import (
 func main() {
 
 	width := 640
-	height := 480
+	height := 580
 
 	ebiten.SetWindowSize(width, height)
+	ebiten.SetWindowResizable(true)
 	ebiten.SetWindowTitle("Conway's Game of Life")
 
 	gameToRun := game.Game{}
