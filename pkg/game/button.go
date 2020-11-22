@@ -5,17 +5,16 @@ import (
 )
 
 type Button struct {
-
 	x int
 	y int
 
 	height float64
-	width float64
+	width  float64
 
 	image *ebiten.Image
 
-
-
+	frameScaleWidth  float64
+	frameScaleHeight float64
 }
 
 func (b *Button) Init(locationX int, locationY int, buttonWidth float64, buttonHeight float64, buttonType string, buttonImage *ebiten.Image) {
@@ -30,7 +29,7 @@ func (b *Button) Init(locationX int, locationY int, buttonWidth float64, buttonH
 }
 
 func (b *Button) IsPressed(x int, y int) bool {
-	if x >= b.x && x <= (b.x + int(b.width)) && y >= b.y && y <= (b.y + int(b.height)) {
+	if x >= b.x && x <= (b.x+int(b.width)) && y >= b.y && y <= (b.y+int(b.height)) {
 		return true
 	} else {
 		return false
