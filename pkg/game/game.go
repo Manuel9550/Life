@@ -1,12 +1,18 @@
 package game
 
 import (
+	"image/color"
 	_ "image/png"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/hajimehoshi/ebiten"
 	"github.com/hajimehoshi/ebiten/ebitenutil"
+	"github.com/hajimehoshi/ebiten/examples/resources/fonts"
+	"github.com/hajimehoshi/ebiten/text"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/opentype"
 )
 
 type Game struct {
@@ -22,8 +28,9 @@ type Game struct {
 	mousePressed bool
 	paused       bool
 
-	interval     time.Duration
-	NextInterval time.Duration
+	interval     int
+	NextInterval int
+	timeChange   int
 
 	xPos int
 	yPos int
@@ -40,6 +47,15 @@ type Game struct {
 	widthScale  float64
 
 	buttons map[string]*Button
+
+	font  font.Face
+	fontX int
+	fontY int
+
+	messageX int
+	messageY int
+
+	pauseX int
 }
 
 func (g *Game) Init(gameWidth int, gameHeight int) {
@@ -103,8 +119,8 @@ func (g *Game) Init(gameWidth int, gameHeight int) {
 	g.heightOffset = g.board.initialize(gameWidth, gameHeight-int(g.buttonHeight))
 
 	// Scale the buttons and frames so they are the proper size on the screen
-	g.heightScale = (g.buttonHeight + float64(g.heightOffset)) / float64(bh)
-	g.widthScale = g.buttonWidth / float64(bw)
+	g.heightScale = (g.buttonHeight + float64(g.heightOffset)) / float64(bh) * 0.5
+	g.widthScale = g.buttonWidth / float64(bw) * 0.5
 
 	frameScaleHeight := (g.buttonHeight + float64(g.heightOffset)) / float64(fh)
 	frameScaleWidth := g.buttonWidth / float64(fw)
@@ -113,8 +129,11 @@ func (g *Game) Init(gameWidth int, gameHeight int) {
 	g.NextInterval = g.interval
 
 	// Set the timer to the standard 1 update per 500 milliseconds
-	g.ticker = time.NewTicker(g.interval * time.Millisecond)
+	g.ticker = time.NewTicker(time.Duration(g.interval) * time.Millisecond)
 	g.ticker.Stop()
+
+	// How many milliseconds the interval is increased/decreased by
+	g.timeChange = 100
 
 	// Initialize the keys we are tracking
 	g.keyPressed = map[ebiten.Key]bool{
@@ -131,9 +150,11 @@ func (g *Game) Init(gameWidth int, gameHeight int) {
 
 	g.buttons = make(map[string]*Button)
 
+	buttonHeight := g.height - int(g.buttonHeight) - g.heightOffset
+
 	g.buttons["PLAY"] = &Button{
 		x:                0,
-		y:                g.height - int(g.buttonHeight) - g.heightOffset,
+		y:                buttonHeight,
 		height:           g.buttonHeight,
 		width:            g.buttonWidth,
 		image:            g.images["PLAY"],
@@ -143,7 +164,7 @@ func (g *Game) Init(gameWidth int, gameHeight int) {
 
 	g.buttons["SLOWER"] = &Button{
 		x:                int(g.buttonWidth),
-		y:                g.height - int(g.buttonHeight) - g.heightOffset,
+		y:                buttonHeight,
 		height:           g.buttonHeight,
 		width:            g.buttonWidth,
 		image:            g.images["SLOWER"],
@@ -153,13 +174,32 @@ func (g *Game) Init(gameWidth int, gameHeight int) {
 
 	g.buttons["FASTER"] = &Button{
 		x:                int(g.buttonWidth * 4),
-		y:                g.height - int(g.buttonHeight) - g.heightOffset,
+		y:                buttonHeight,
 		height:           g.buttonHeight,
 		width:            g.buttonWidth,
 		image:            g.images["FASTER"],
 		frameScaleWidth:  frameScaleWidth,
 		frameScaleHeight: frameScaleHeight,
 	}
+
+	// Font
+
+	const dpi = 72
+	tt, err := opentype.Parse(fonts.MPlus1pRegular_ttf)
+	g.font, err = opentype.NewFace(tt, &opentype.FaceOptions{
+		Size:    24,
+		DPI:     dpi,
+		Hinting: font.HintingFull,
+	})
+
+	g.fontX = int(g.buttonWidth * 2.25) // start halfway between the end of the their button area
+	g.fontY = buttonHeight + int(g.buttonHeight/1.25)
+
+	g.messageX = int(g.buttonWidth * 2.3)
+	g.messageY = buttonHeight + int(g.buttonHeight/2)
+
+	g.pauseX = int(g.buttonWidth * 2.70)
+
 }
 
 func (g *Game) Update() error {
@@ -178,7 +218,7 @@ func (g *Game) Update() error {
 		// Check if we should update the timer as well
 		if g.NextInterval != g.interval {
 			g.interval = g.NextInterval
-			g.ticker = time.NewTicker(g.interval * time.Millisecond)
+			g.ticker = time.NewTicker(time.Duration(g.interval) * time.Millisecond)
 		}
 
 	default:
@@ -203,9 +243,9 @@ func (g *Game) checkKeys() {
 				case ebiten.KeySpace:
 					g.pauseButton()
 				case ebiten.KeyLeft:
-					g.updateTime(-100)
+					g.updateTime(g.timeChange)
 				case ebiten.KeyRight:
-					g.updateTime(100)
+					g.updateTime(-g.timeChange)
 				}
 
 			}
@@ -254,13 +294,22 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		op.GeoM.Reset()
 		//op.GeoM.Scale(2, g.buttonHeight + float64(g.heightOffset) / float64(h))
 		op.GeoM.Scale(g.widthScale, g.heightScale)
-		op.GeoM.Translate(float64(button.x), float64(button.y))
+		op.GeoM.Translate(float64(button.x)+(g.buttonWidth/4), float64(button.y)+(g.buttonHeight/4))
 
 		screen.DrawImage(button.image, op)
 	}
 
-	//op.GeoM.Translate(50, 50)
-	//op.GeoM.Scale(1, 1)
+	msg := "Current Speed:"
+	text.Draw(screen, msg, g.font, g.messageX, g.messageY, color.White)
+
+	// Draw the speed we are currently playing at
+	if g.paused {
+		msg = "Paused"
+		text.Draw(screen, msg, g.font, g.pauseX, g.fontY, color.White)
+	} else {
+		msg = strconv.Itoa(g.NextInterval) + " milliseconds"
+		text.Draw(screen, msg, g.font, g.fontX, g.fontY, color.White)
+	}
 
 }
 
@@ -271,7 +320,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 func (g *Game) pauseButton() {
 	// If the timer is on, stop it. If the timer isn't on, restart it
 	if g.paused {
-		g.ticker = time.NewTicker(g.interval * time.Millisecond)
+		g.ticker = time.NewTicker(time.Duration(g.interval) * time.Millisecond)
 		g.paused = false
 		g.buttons["PLAY"].image = g.images["PAUSE"]
 	} else {
@@ -282,7 +331,7 @@ func (g *Game) pauseButton() {
 
 }
 
-func (g *Game) updateTime(duration time.Duration) {
+func (g *Game) updateTime(duration int) {
 	g.NextInterval += duration
 
 	if g.NextInterval >= 2000 {
@@ -337,7 +386,14 @@ func (g *Game) checkMouse() {
 					switch buttonName {
 					case "PLAY":
 						g.pauseButton()
+
+					case "FASTER":
+						g.updateTime(-g.timeChange)
+					case "SLOWER":
+						g.updateTime(g.timeChange)
+
 					}
+
 					buttonClicked = true
 					break
 				}
