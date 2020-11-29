@@ -1,10 +1,11 @@
 package main
 
 import (
+	_ "image/color"
+
 	"github.com/Manuel9550/Life/pkg/game"
 	"github.com/hajimehoshi/ebiten"
 	_ "github.com/hajimehoshi/ebiten/ebitenutil"
-	_ "image/color"
 
 	"log"
 )
@@ -19,11 +20,13 @@ func main() {
 	ebiten.SetWindowTitle("Conway's Game of Life")
 
 	gameToRun := game.Game{}
-	gameToRun.Init(width,height)
+	err := gameToRun.Init(width, height)
 
-	if err := ebiten.RunGame(&gameToRun); err != nil {
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err = ebiten.RunGame(&gameToRun); err != nil {
 		log.Fatal(err)
 	}
 }
-
-

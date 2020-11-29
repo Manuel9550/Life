@@ -8,24 +8,16 @@ type Button struct {
 	x int
 	y int
 
-	height float64
-	width  float64
+	height int
+	width  int
 
 	image *ebiten.Image
 
 	frameScaleWidth  float64
 	frameScaleHeight float64
-}
 
-func (b *Button) Init(locationX int, locationY int, buttonWidth float64, buttonHeight float64, buttonType string, buttonImage *ebiten.Image) {
-	b.x = locationX
-	b.y = locationY
-
-	b.width = buttonWidth
-	b.height = buttonHeight
-
-	b.image = buttonImage
-
+	scaleX float64
+	scaleY float64
 }
 
 func (b *Button) IsPressed(x int, y int) bool {
@@ -34,4 +26,19 @@ func (b *Button) IsPressed(x int, y int) bool {
 	} else {
 		return false
 	}
+}
+
+func (b *Button) SetOp(frameOp *ebiten.DrawImageOptions, buttonOp *ebiten.DrawImageOptions, frameImage *ebiten.Image) {
+
+	// Draw the button frame before the button image
+	frameOp.GeoM.Reset()
+
+	frameOp.GeoM.Scale(b.frameScaleWidth, b.frameScaleHeight)
+	frameOp.GeoM.Translate(float64(b.x), float64(b.y))
+
+	//
+
+	buttonOp.GeoM.Reset()
+	buttonOp.GeoM.Scale(b.scaleX, b.scaleY)
+	buttonOp.GeoM.Translate(float64(b.x)+(float64(b.width)/4), float64(b.y)+(float64(b.height)/4))
 }

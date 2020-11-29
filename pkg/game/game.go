@@ -3,16 +3,12 @@ package game
 import (
 	"image/color"
 	_ "image/png"
-	"log"
 	"strconv"
 	"time"
 
 	"github.com/hajimehoshi/ebiten"
 	"github.com/hajimehoshi/ebiten/ebitenutil"
-	"github.com/hajimehoshi/ebiten/examples/resources/fonts"
 	"github.com/hajimehoshi/ebiten/text"
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/opentype"
 )
 
 type Game struct {
@@ -21,6 +17,7 @@ type Game struct {
 	images map[string]*ebiten.Image
 
 	board Board
+	panel Panel
 
 	ticker *time.Ticker
 
@@ -31,6 +28,8 @@ type Game struct {
 	interval     int
 	NextInterval int
 	timeChange   int
+	maxInterval  int
+	minInterval  int
 
 	xPos int
 	yPos int
@@ -38,73 +37,28 @@ type Game struct {
 	lastXPos int
 	lastYPos int
 
-	buttonHeight float64
-	buttonWidth  float64
-
 	heightOffset int
-
-	heightScale float64
-	widthScale  float64
-
-	buttons map[string]*Button
-
-	font  font.Face
-	fontX int
-	fontY int
-
-	messageX int
-	messageY int
-
-	pauseX int
 }
 
-func (g *Game) Init(gameWidth int, gameHeight int) {
+func (g *Game) Init(gameWidth int, gameHeight int) error {
 
 	g.images = make(map[string]*ebiten.Image)
 
 	var err error
 	g.images["DEAD"], _, err = ebitenutil.NewImageFromFile("assets/tile-white.png")
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	g.images["ALIVE"], _, err = ebitenutil.NewImageFromFile("assets/tile-green.png")
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	g.images["HIGHLIGHTED"], _, err = ebitenutil.NewImageFromFile("assets/tile-blue.png")
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-
-	g.images["PLAY"], _, err = ebitenutil.NewImageFromFile("assets/play-icon.png")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	g.images["PAUSE"], _, err = ebitenutil.NewImageFromFile("assets/pause-icon.png")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	g.images["SLOWER"], _, err = ebitenutil.NewImageFromFile("assets/slower-icon.png")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	g.images["FASTER"], _, err = ebitenutil.NewImageFromFile("assets/faster-icon.png")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	g.images["FRAME"], _, err = ebitenutil.NewImageFromFile("assets/button-frame.png")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	bw, bh := g.images["PLAY"].Size()
-	fw, fh := g.images["FRAME"].Size()
 
 	g.paused = true
 
@@ -112,21 +66,17 @@ func (g *Game) Init(gameWidth int, gameHeight int) {
 	g.height = gameHeight
 
 	// The game will need a bottom panel for buttons.
-	g.buttonHeight = float64(gameHeight) * 0.15
-	g.buttonWidth = float64(gameWidth) * 0.20
+	buttonHeight := int(float64(gameHeight) * 0.15)
+	buttonWidth := int(float64(gameWidth) * 0.20)
 
 	// Initialize the board with 20x20 tiles
-	g.heightOffset = g.board.initialize(gameWidth, gameHeight-int(g.buttonHeight))
-
-	// Scale the buttons and frames so they are the proper size on the screen
-	g.heightScale = (g.buttonHeight + float64(g.heightOffset)) / float64(bh) * 0.5
-	g.widthScale = g.buttonWidth / float64(bw) * 0.5
-
-	frameScaleHeight := (g.buttonHeight + float64(g.heightOffset)) / float64(fh)
-	frameScaleWidth := g.buttonWidth / float64(fw)
+	g.heightOffset = g.board.initialize(gameWidth, gameHeight-int(buttonHeight))
 
 	g.interval = 500
 	g.NextInterval = g.interval
+
+	g.minInterval = 100
+	g.maxInterval = 2000
 
 	// Set the timer to the standard 1 update per 500 milliseconds
 	g.ticker = time.NewTicker(time.Duration(g.interval) * time.Millisecond)
@@ -148,57 +98,27 @@ func (g *Game) Init(gameWidth int, gameHeight int) {
 	g.lastXPos = 0
 	g.lastYPos = 0
 
-	g.buttons = make(map[string]*Button)
-
-	buttonHeight := g.height - int(g.buttonHeight) - g.heightOffset
-
-	g.buttons["PLAY"] = &Button{
-		x:                0,
-		y:                buttonHeight,
-		height:           g.buttonHeight,
-		width:            g.buttonWidth,
-		image:            g.images["PLAY"],
-		frameScaleWidth:  frameScaleWidth,
-		frameScaleHeight: frameScaleHeight,
+	// Initialize the panel
+	buttonStats := buttonParam{
+		buttonWidth:  buttonWidth,
+		buttonHeight: buttonHeight,
 	}
 
-	g.buttons["SLOWER"] = &Button{
-		x:                int(g.buttonWidth),
-		y:                buttonHeight,
-		height:           g.buttonHeight,
-		width:            g.buttonWidth,
-		image:            g.images["SLOWER"],
-		frameScaleWidth:  frameScaleWidth,
-		frameScaleHeight: frameScaleHeight,
+	panelStats := panelInput{
+		gameHeight:   gameHeight,
+		gameWidth:    gameWidth,
+		heightOffset: g.heightOffset,
+		button:       buttonStats,
 	}
 
-	g.buttons["FASTER"] = &Button{
-		x:                int(g.buttonWidth * 4),
-		y:                buttonHeight,
-		height:           g.buttonHeight,
-		width:            g.buttonWidth,
-		image:            g.images["FASTER"],
-		frameScaleWidth:  frameScaleWidth,
-		frameScaleHeight: frameScaleHeight,
+	g.panel = Panel{}
+	err = g.panel.initialize(&panelStats)
+
+	if err != nil {
+		return err
 	}
 
-	// Font
-
-	const dpi = 72
-	tt, err := opentype.Parse(fonts.MPlus1pRegular_ttf)
-	g.font, err = opentype.NewFace(tt, &opentype.FaceOptions{
-		Size:    24,
-		DPI:     dpi,
-		Hinting: font.HintingFull,
-	})
-
-	g.fontX = int(g.buttonWidth * 2.25) // start halfway between the end of the their button area
-	g.fontY = buttonHeight + int(g.buttonHeight/1.25)
-
-	g.messageX = int(g.buttonWidth * 2.3)
-	g.messageY = buttonHeight + int(g.buttonHeight/2)
-
-	g.pauseX = int(g.buttonWidth * 2.70)
+	return nil
 
 }
 
@@ -209,7 +129,7 @@ func (g *Game) Update() error {
 	g.checkCursor()
 
 	// Check if enough time has passed to update the game
-	//for {
+
 	select {
 	case _ = <-g.ticker.C:
 		// The ticker has sent a value: Perform an update
@@ -224,7 +144,6 @@ func (g *Game) Update() error {
 	default:
 		return nil
 	}
-	//}
 
 	return nil
 }
@@ -243,9 +162,9 @@ func (g *Game) checkKeys() {
 				case ebiten.KeySpace:
 					g.pauseButton()
 				case ebiten.KeyLeft:
-					g.updateTime(g.timeChange)
-				case ebiten.KeyRight:
 					g.updateTime(-g.timeChange)
+				case ebiten.KeyRight:
+					g.updateTime(g.timeChange)
 				}
 
 			}
@@ -263,7 +182,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	for x := 0; x < g.board.squareColumns; x++ {
 		for y := 0; y < g.board.squareRows; y++ {
 			op.GeoM.Reset()
-			op.GeoM.Translate(float64(x)*20, float64(y)*20)
+			op.GeoM.Translate(float64(x*g.board.squareSize), float64(y*g.board.squareSize))
 
 			if g.board.tiles[x][y].Alive {
 				screen.DrawImage(g.images["ALIVE"], op)
@@ -280,35 +199,25 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	screen.DrawImage(g.images["HIGHLIGHTED"], op)
 
 	// Draw the buttons
+	buttonOp := &ebiten.DrawImageOptions{}
+	frameOp := &ebiten.DrawImageOptions{}
+	for _, button := range g.panel.buttons {
 
-	for _, button := range g.buttons {
-
-		// Draw the button frame before the button image
-		op.GeoM.Reset()
-
-		op.GeoM.Scale(button.frameScaleWidth, button.frameScaleHeight)
-		op.GeoM.Translate(float64(button.x), float64(button.y))
-
-		screen.DrawImage(g.images["FRAME"], op)
-
-		op.GeoM.Reset()
-		//op.GeoM.Scale(2, g.buttonHeight + float64(g.heightOffset) / float64(h))
-		op.GeoM.Scale(g.widthScale, g.heightScale)
-		op.GeoM.Translate(float64(button.x)+(g.buttonWidth/4), float64(button.y)+(g.buttonHeight/4))
-
-		screen.DrawImage(button.image, op)
+		button.SetOp(frameOp, buttonOp, g.panel.images["FRAME"])
+		screen.DrawImage(g.panel.images["FRAME"], frameOp)
+		screen.DrawImage(button.image, buttonOp)
 	}
 
 	msg := "Current Speed:"
-	text.Draw(screen, msg, g.font, g.messageX, g.messageY, color.White)
+	text.Draw(screen, msg, g.panel.font, g.panel.messageX, g.panel.messageY, color.White)
 
 	// Draw the speed we are currently playing at
 	if g.paused {
 		msg = "Paused"
-		text.Draw(screen, msg, g.font, g.pauseX, g.fontY, color.White)
+		text.Draw(screen, msg, g.panel.font, g.panel.pauseX, g.panel.fontY, color.White)
 	} else {
 		msg = strconv.Itoa(g.NextInterval) + " milliseconds"
-		text.Draw(screen, msg, g.font, g.fontX, g.fontY, color.White)
+		text.Draw(screen, msg, g.panel.font, g.panel.fontX, g.panel.fontY, color.White)
 	}
 
 }
@@ -322,24 +231,28 @@ func (g *Game) pauseButton() {
 	if g.paused {
 		g.ticker = time.NewTicker(time.Duration(g.interval) * time.Millisecond)
 		g.paused = false
-		g.buttons["PLAY"].image = g.images["PAUSE"]
+		g.panel.buttons["PLAY"].image = g.panel.images["PAUSE"]
 	} else {
 		g.ticker.Stop()
 		g.paused = true
-		g.buttons["PLAY"].image = g.images["PLAY"]
+		g.panel.buttons["PLAY"].image = g.panel.images["PLAY"]
 	}
 
 }
 
 func (g *Game) updateTime(duration int) {
+
+	if g.paused {
+		return
+	}
 	g.NextInterval += duration
 
-	if g.NextInterval >= 2000 {
-		g.NextInterval = 2000
+	if g.NextInterval >= g.maxInterval {
+		g.NextInterval = g.maxInterval
 	}
 
-	if g.NextInterval <= 100 {
-		g.NextInterval = 100
+	if g.NextInterval <= g.minInterval {
+		g.NextInterval = g.minInterval
 	}
 }
 
@@ -381,16 +294,16 @@ func (g *Game) checkMouse() {
 			// Check if the user clicked any of the buttons
 			x, y := ebiten.CursorPosition()
 			buttonClicked := false
-			for buttonName, button := range g.buttons {
+			for buttonName, button := range g.panel.buttons {
 				if button.IsPressed(x, y) {
 					switch buttonName {
 					case "PLAY":
 						g.pauseButton()
 
 					case "FASTER":
-						g.updateTime(-g.timeChange)
-					case "SLOWER":
 						g.updateTime(g.timeChange)
+					case "SLOWER":
+						g.updateTime(-g.timeChange)
 
 					}
 
