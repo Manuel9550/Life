@@ -11,12 +11,6 @@ import (
 type Panel struct {
 	images map[string]*ebiten.Image
 
-	panelX int
-	panelY int
-
-	buttonWidth  int
-	buttonHeight int
-
 	buttons map[string]*Button
 
 	font  font.Face
@@ -25,8 +19,7 @@ type Panel struct {
 
 	messageX int
 	messageY int
-
-	pauseX int
+	pauseX   int
 }
 
 type buttonParam struct {
@@ -138,7 +131,6 @@ func (p *Panel) initialize(panelStats *panelInput) error {
 	}
 
 	// Font
-
 	const dpi = 72
 	tt, err := opentype.Parse(fonts.MPlus1pRegular_ttf)
 	p.font, err = opentype.NewFace(tt, &opentype.FaceOptions{

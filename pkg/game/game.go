@@ -14,23 +14,26 @@ import (
 type Game struct {
 	width  int
 	height int
+
+	// Store images for the mouse/cells
 	images map[string]*ebiten.Image
 
-	board Board
-	panel Panel
+	board Board // Keeps track of and updates the cells
+	panel Panel // Stores the buttons the player can click on
 
-	ticker *time.Ticker
-
-	keyPressed   map[ebiten.Key]bool // Map of key presses, to determine if the user has released a key
+	keyPressed   map[ebiten.Key]bool
 	mousePressed bool
 	paused       bool
 
+	// Variables for dealing with the interval state
 	interval     int
 	NextInterval int
 	timeChange   int
 	maxInterval  int
 	minInterval  int
+	ticker       *time.Ticker
 
+	// The current/last position of the mouse
 	xPos int
 	yPos int
 
@@ -122,6 +125,7 @@ func (g *Game) Init(gameWidth int, gameHeight int) error {
 
 }
 
+// The main update function
 func (g *Game) Update() error {
 
 	g.checkKeys()
@@ -148,6 +152,7 @@ func (g *Game) Update() error {
 	return nil
 }
 
+// Checks for keyboard input, called every Update
 func (g *Game) checkKeys() {
 
 	for key, isPressed := range g.keyPressed {
@@ -173,10 +178,10 @@ func (g *Game) checkKeys() {
 
 }
 
+// Draws the board to the screen
 func (g *Game) Draw(screen *ebiten.Image) {
 
 	// Must fill the screen with 20x20 squares
-
 	op := &ebiten.DrawImageOptions{}
 
 	for x := 0; x < g.board.squareColumns; x++ {
@@ -208,10 +213,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		screen.DrawImage(button.image, buttonOp)
 	}
 
+	// Draw the speed we are currently playing at
+
 	msg := "Current Speed:"
 	text.Draw(screen, msg, g.panel.font, g.panel.messageX, g.panel.messageY, color.White)
 
-	// Draw the speed we are currently playing at
 	if g.paused {
 		msg = "Paused"
 		text.Draw(screen, msg, g.panel.font, g.panel.pauseX, g.panel.fontY, color.White)
@@ -222,6 +228,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 }
 
+// O
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
 	return g.width, g.height
 }
@@ -240,6 +247,7 @@ func (g *Game) pauseButton() {
 
 }
 
+// Increase/Decrease the interval at which a new state is calculated
 func (g *Game) updateTime(duration int) {
 
 	if g.paused {
@@ -256,15 +264,15 @@ func (g *Game) updateTime(duration int) {
 	}
 }
 
+// Check what the current state of the cursor is
 func (g *Game) checkCursor() {
-	// compare the cursor position to any onscreen objects
-	x, y := ebiten.CursorPosition()
 
-	// check if the cursor is over a button
+	x, y := ebiten.CursorPosition()
 	g.xPos, g.yPos = g.board.checkSquare(x, y)
 
 }
 
+// Checks for mouse input. Called on every Update
 func (g *Game) checkMouse() {
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 

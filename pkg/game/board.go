@@ -3,10 +3,10 @@ package game
 import "github.com/Manuel9550/Life/pkg/tile"
 
 type Board struct {
-	squareRows int
+	squareRows    int
 	squareColumns int
 
-	tiles [][]tile.Tile
+	tiles       [][]tile.Tile
 	tilesUpdate [][]tile.Tile
 
 	squareSize int
@@ -20,17 +20,17 @@ func (b *Board) initialize(width int, height int) int {
 	b.squareColumns = width / b.squareSize
 
 	// get the height remainder for UI purposes
-	remainder := height % 20
+	remainder := height % b.squareSize
 
-	b.tiles = make([][]tile.Tile,b.squareColumns)
-	b.tilesUpdate = make([][]tile.Tile,b.squareColumns)
+	b.tiles = make([][]tile.Tile, b.squareColumns)
+	b.tilesUpdate = make([][]tile.Tile, b.squareColumns)
 
 	for x := range b.tiles {
-		b.tiles[x] = make([]tile.Tile,b.squareRows)
-		b.tilesUpdate[x] = make([]tile.Tile,b.squareRows)
+		b.tiles[x] = make([]tile.Tile, b.squareRows)
+		b.tilesUpdate[x] = make([]tile.Tile, b.squareRows)
 		for y := range b.tiles[x] {
-			b.tiles[x][y] = tile.Tile{Alive:false}
-			b.tilesUpdate[x][y] = tile.Tile{Alive:false}
+			b.tiles[x][y] = tile.Tile{Alive: false}
+			b.tilesUpdate[x][y] = tile.Tile{Alive: false}
 		}
 	}
 
@@ -46,18 +46,17 @@ func (b *Board) initialize(width int, height int) int {
 
 	return remainder
 
-
 }
 
-func (b *Board)  UpdateTiles() {
-
+// Updates all the cells on the board, called to create the new board state
+func (b *Board) UpdateTiles() {
 
 	for x := 0; x < b.squareColumns; x++ {
 		for y := 0; y < b.squareRows; y++ {
 			if b.tiles[x][y].Alive {
 				// Live cells with exactly two or three live neighbours lives on to the next generation
 
-				liveCount := b.liveCount(x,y)
+				liveCount := b.liveCount(x, y)
 
 				if liveCount != 2 && liveCount != 3 {
 					b.tilesUpdate[x][y].Alive = false
@@ -66,7 +65,7 @@ func (b *Board)  UpdateTiles() {
 				}
 			} else {
 				// dead cells with three live neighbours becomes a live cell
-				liveCount := b.liveCount(x,y)
+				liveCount := b.liveCount(x, y)
 
 				if liveCount == 3 {
 					b.tilesUpdate[x][y].Alive = true
@@ -80,16 +79,16 @@ func (b *Board)  UpdateTiles() {
 
 	// Once we have the new state, copy the updated state into the state that will be rendered on screen
 	for x := 0; x < b.squareColumns; x++ {
-		copy(b.tiles[x],b.tilesUpdate[x])
+		copy(b.tiles[x], b.tilesUpdate[x])
 	}
 }
 
-func (b *Board)  liveCount(x int, y int) int {
+// Check how many live neighbours a cell has
+func (b *Board) liveCount(x int, y int) int {
 	liveCount := 0
-	for i := x - 1; i <= x + 1; i++ {
-		for t := y - 1; t <= y + 1; t++ {
+	for i := x - 1; i <= x+1; i++ {
+		for t := y - 1; t <= y+1; t++ {
 
-			// We don't include the actual cell, just the neighbours!
 			if i != x || t != y {
 				// Make sure not to fetch cells that are out of bounds
 				if i >= 0 && t >= 0 && i < b.squareColumns && t < b.squareRows {
@@ -104,7 +103,8 @@ func (b *Board)  liveCount(x int, y int) int {
 	return liveCount
 }
 
-func (b * Board) checkSquare(x int, y int) (int,int) {
+// Check which square the user mouse coordinates are on
+func (b *Board) checkSquare(x int, y int) (int, int) {
 	// Figure out which button we are on
 	xCoordinate := x / b.squareSize
 	yCoordinate := y / b.squareSize
@@ -114,7 +114,7 @@ func (b * Board) checkSquare(x int, y int) (int,int) {
 		xCoordinate = b.squareColumns - 1
 	}
 
-	if xCoordinate < 0  {
+	if xCoordinate < 0 {
 		xCoordinate = 0
 	}
 
@@ -122,12 +122,9 @@ func (b * Board) checkSquare(x int, y int) (int,int) {
 		yCoordinate = b.squareRows - 1
 	}
 
-	if yCoordinate < 0  {
+	if yCoordinate < 0 {
 		yCoordinate = 0
 	}
 
-
-
 	return xCoordinate, yCoordinate
 }
-
