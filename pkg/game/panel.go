@@ -39,42 +39,42 @@ func (p *Panel) initialize(panelStats *panelInput) error {
 	p.images = make(map[string]*ebiten.Image)
 
 	var err error
-	p.images["DEAD"], _, err = ebitenutil.NewImageFromFile("assets/tile-white.png")
+	p.images["DEAD"], _, err = ebitenutil.NewImageFromFile("../assets/tile-white.png")
 	if err != nil {
 		return err
 	}
 
-	p.images["ALIVE"], _, err = ebitenutil.NewImageFromFile("assets/tile-green.png")
+	p.images["ALIVE"], _, err = ebitenutil.NewImageFromFile("../assets/tile-green.png")
 	if err != nil {
 		return err
 	}
 
-	p.images["HIGHLIGHTED"], _, err = ebitenutil.NewImageFromFile("assets/tile-blue.png")
+	p.images["HIGHLIGHTED"], _, err = ebitenutil.NewImageFromFile("../assets/tile-blue.png")
 	if err != nil {
 		return err
 	}
 
-	p.images["PLAY"], _, err = ebitenutil.NewImageFromFile("assets/play-icon.png")
+	p.images["PLAY"], _, err = ebitenutil.NewImageFromFile("../assets/play-icon.png")
 	if err != nil {
 		return err
 	}
 
-	p.images["PAUSE"], _, err = ebitenutil.NewImageFromFile("assets/pause-icon.png")
+	p.images["PAUSE"], _, err = ebitenutil.NewImageFromFile("../assets/pause-icon.png")
 	if err != nil {
 		return err
 	}
 
-	p.images["SLOWER"], _, err = ebitenutil.NewImageFromFile("assets/slower-icon.png")
+	p.images["SLOWER"], _, err = ebitenutil.NewImageFromFile("../assets/slower-icon.png")
 	if err != nil {
 		return err
 	}
 
-	p.images["FASTER"], _, err = ebitenutil.NewImageFromFile("assets/faster-icon.png")
+	p.images["FASTER"], _, err = ebitenutil.NewImageFromFile("../assets/faster-icon.png")
 	if err != nil {
 		return err
 	}
 
-	p.images["FRAME"], _, err = ebitenutil.NewImageFromFile("assets/button-frame.png")
+	p.images["FRAME"], _, err = ebitenutil.NewImageFromFile("../assets/button-frame.png")
 	if err != nil {
 		return err
 	}

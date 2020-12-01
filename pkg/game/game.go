@@ -48,17 +48,18 @@ func (g *Game) Init(gameWidth int, gameHeight int) error {
 	g.images = make(map[string]*ebiten.Image)
 
 	var err error
-	g.images["DEAD"], _, err = ebitenutil.NewImageFromFile("assets/tile-white.png")
+
+	g.images["ALIVE"], _, err = ebitenutil.NewImageFromFile("../assets/tile-green.png")
 	if err != nil {
 		return err
 	}
 
-	g.images["ALIVE"], _, err = ebitenutil.NewImageFromFile("assets/tile-green.png")
+	g.images["DEAD"], _, err = ebitenutil.NewImageFromFile("../assets/tile-white.png")
 	if err != nil {
 		return err
 	}
 
-	g.images["HIGHLIGHTED"], _, err = ebitenutil.NewImageFromFile("assets/tile-blue.png")
+	g.images["HIGHLIGHTED"], _, err = ebitenutil.NewImageFromFile("../assets/tile-blue.png")
 	if err != nil {
 		return err
 	}
