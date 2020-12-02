@@ -10,4 +10,4 @@ A simple implementation of Conway's game of life. Made using [Ebiten](https://gi
 
 # How to use
 
-Clone this repository. Navigate to the /cmd/ folder and go run/build main.go
+Clone this repository. Navigate to the /cmd/ folder and go run main.go
